@@ -152,10 +152,16 @@ _ ⊢ [] : list(_).
 --%------------------------------------ (T-LetRec)
 Γ ⊢ letrec(X = E1 in E2) : T2.
 
+!
+--%------------------------------------ (T-Error)
+Γ ⊢ _ : "type error".
+
 run(E) :-
-  write(E),
-  _  ⊢ E : T, write(' : '), write(T),
-  [] ⊢ E ⇓ V, write(' ⇓ '), write(V),
+  write(E),!,
+  _  ⊢ E : T, write(' : '), write(T),!,
+  (T="type error";
+  [] ⊢ E ⇓ V, write(' ⇓ '), write(V),!
+  ),
   nl.
 
 main :-
@@ -182,5 +188,6 @@ main :-
           []->0,
           [x|xs]->x+(sum $ xs)))
       in sum $ [1,2,3,4,5])),
+  run(letrec()),
   halt.
 
