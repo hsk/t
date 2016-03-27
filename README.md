@@ -16,7 +16,7 @@ T言語の実装は大ステップ評価器の評価規則と、型付け規則�
 
 ## run
 
-	swipl t.pl
+	./t example/sum.t
 
 ## TODO
 

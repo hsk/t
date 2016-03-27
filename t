@@ -1,3 +1,4 @@
+#!/usr/bin/env swipl
 :- initialization(main).
 :- op(1200, xfx, [ -- ]).
 term_expansion(A -- B, B :- A).
@@ -154,7 +155,7 @@ _ ⊢ [] : list(_).
 
 !
 --%------------------------------------ (T-Error)
-Γ ⊢ _ : "type error".
+_ ⊢ _ : "type error".
 
 run(E) :-
   write(E),!,
