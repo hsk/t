@@ -202,11 +202,10 @@ run(ARGV,E) :-
   env([],Env),
   (Env,(argv:list(list(int)))) ⊢ E : T, 
   (
-    T="type error", write('type error');
-    ([],(argv:ARGV2)) ⊢ E ⇓ V, write(V);
-    write('runtime error')
-  ),
-  nl,!.
+    T="type error", write('type error\n');
+    ([],(argv:ARGV2)) ⊢ E ⇓ _;
+    write('runtime error\n')
+  ),!.
 
 main :-
   current_prolog_flag(argv, ARGV),

@@ -1,1 +1,1 @@
-true
+println_bool $ true

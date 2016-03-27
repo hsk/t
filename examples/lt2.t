@@ -1,1 +1,1 @@
-2 < 2
+println_bool $ (2 < 2)
