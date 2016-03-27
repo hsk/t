@@ -1,8 +1,8 @@
 #!/usr/bin/env swipl
+:- style_check(-singleton).
+:- set_prolog_flag(double_quotes,codes).
 :- initialization(main).
 :- op(1200, xfx, [ -- ]).
-term_expansion(A -- B, B :- A).
-%:- style_check(-singleton).
 :- op(910, xfx, [ ⊢ ]).
 :- op(900, xfx, [ ⇓ ]).
 :- op(891, xfy, [ in ]).
@@ -10,30 +10,30 @@ term_expansion(A -- B, B :- A).
 :- op(500, yfx, $).
 :- op(10, fx, λ).
 
-:- set_prolog_flag(double_quotes,codes).
-
 bool(true). bool(false).
 
-lookup((_, X :V), X : V).
-lookup((Γ, X1:_), X : V) :- X1\==X, lookup(Γ, X : V).
+lookup((Γ, X :V ), X : V).
+lookup((Γ, X1:V1), X : V) :- X1\==X, lookup(Γ, X : V).
 
 %% evaluation rules
 
+term_expansion(A -- B, B :- A).
+
 integer(I),!
 --%------------------------------------ (E-Int)
-_ ⊢ I ⇓ I.
+C ⊢ I ⇓ I.
 
 bool(B),!
 --%------------------------------------ (E-Bool)
-_ ⊢ B ⇓ B.
+C ⊢ B ⇓ B.
 
 C ⊢ E1 ⇓ true,!, C ⊢ E2 ⇓ V,!
 --%------------------------------------ (E-IfTrue)
-C ⊢ if(E1, E2, _) ⇓ V.
+C ⊢ if(E1, E2, E3) ⇓ V.
 
 C ⊢ E1 ⇓ false,!, C ⊢ E3 ⇓ V,!
 --%------------------------------------ (E-IfFalse)
-C ⊢ if(E1, _, E3) ⇓ V.
+C ⊢ if(E1, E2, E3) ⇓ V.
 
 C ⊢ E1 ⇓ V1,!, C ⊢ E2 ⇓ V2,!, V is V1 + V2,!
 --%------------------------------------ (E-Plus)
@@ -42,10 +42,6 @@ C ⊢ E1 + E2 ⇓ V.
 C ⊢ E1 ⇓ V1,!, C ⊢ E2 ⇓ V2,!, V is V1 - V2,!
 --%------------------------------------ (E-Minus)
 C ⊢ E1 - E2 ⇓ V.
-
-C ⊢ E1 ⇓ V1,!, C ⊢ E2 ⇓ V2,!, V is V1 * V2,!
---%------------------------------------ (E-Times)
-C ⊢ E1 * E2 ⇓ V.
 
 C ⊢ E1 ⇓ V1,!, C ⊢ E2 ⇓ V2,!,
 (V1 < V2, V = true; V = false),!
@@ -103,7 +99,7 @@ C ⊢ [E1|E2] ⇓ [V|V2].
 
 !
 --%------------------------------------ (E-Nil)
-_ ⊢ [] ⇓ [].
+C ⊢ [] ⇓ [].
 
 C ⊢ E1 ⇓ [],!, C ⊢ E2 ⇓ V,!
 --%------------------------------------ (E-MatchNil)
@@ -116,17 +112,13 @@ C ⊢ match(E1, _, [X|Y]->E3) ⇓ V.
 
 % typing rules
 
-string(C),!
---%------------------------------------ (T-String)
-_ ⊢ C ⇓ string.
-
 integer(I)
 --%------------------------------------ (T-Int)
-_ ⊢ I : int.
+Γ ⊢ I : int.
 
 bool(B)
 --%------------------------------------ (T-Bool)
-_ ⊢ B : bool.
+Γ ⊢ B : bool.
 
 Γ ⊢ E1 : bool, Γ ⊢ E2 : T, Γ ⊢ E3 : T
 --%------------------------------------ (T-If)
@@ -139,10 +131,6 @@ _ ⊢ B : bool.
 Γ ⊢ E1 : int, Γ ⊢ E2 : int
 --%------------------------------------ (T-Minus)
 Γ ⊢ E1 - E2 : int.
-
-Γ ⊢ E1 : int, Γ ⊢ E2 : int
---%------------------------------------ (T-Times)
-Γ ⊢ E1 * E2 : int.
 
 Γ ⊢ E1 : int, Γ ⊢ E2 : int
 --%------------------------------------ (T-Lt)
@@ -170,7 +158,7 @@ atom(X), lookup(Γ, X : T)
 
 !
 --%------------------------------------ (T-Nil)
-_ ⊢ [] : list(_).
+Γ ⊢ [] : list(_).
 
 Γ ⊢ E1 : list(T1), Γ ⊢ E2 : T,
 ((Γ,X : T1), Y : list(T1)) ⊢ E3 : T
@@ -183,21 +171,24 @@ _ ⊢ [] : list(_).
 
 !
 --%------------------------------------ (T-Error)
-_ ⊢ _ : "type error".
+Γ ⊢ E1 : "type error".
 
-
-addEnv(V,E,E2):- E2=(E,V).
+add_env(V,E,E2):- E2=(E,V).
 
 env -->
-  addEnv(print_string:(list(int)->list(int))),
-  addEnv(println_string:(list(int)->list(int))),
-  addEnv(println_int:(int->int)),
-  addEnv(println_bool:(bool->bool)),
-  addEnv(int_of_string:(list(int)->int))
-  .
+  add_env(print_string:(list(int)->list(int))),
+  add_env(println_string:(list(int)->list(int))),
+  add_env(println_int:(int->int)),
+  add_env(println_bool:(bool->bool)),
+  add_env(int_of_string:(list(int)->int)).
 
-
-run(ARGV,E) :-
+main :-
+  current_prolog_flag(argv, ARGV),
+  [File|_]=ARGV,
+  setup_call_cleanup(open(File, read, In),
+        read_string(In, _, S),
+        close(In)),
+  term_string(E,S),
   maplist(string_codes,ARGV,ARGV2),
   env([],Env),
   (Env,(argv:list(list(int)))) ⊢ E : T, 
@@ -205,15 +196,5 @@ run(ARGV,E) :-
     T="type error", write('type error\n');
     ([],(argv:ARGV2)) ⊢ E ⇓ _;
     write('runtime error\n')
-  ),!.
-
-main :-
-  current_prolog_flag(argv, ARGV),
-  [File|_]=ARGV,
-  
-  setup_call_cleanup(open(File, read, In),
-        read_string(In, _, S),
-        close(In)),
-  term_string(E,S),
-  run(ARGV,E),
+  ),!,
   halt.

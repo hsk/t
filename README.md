@@ -12,11 +12,11 @@ T言語の実装は大ステップ評価器の評価規則と、型付け規則�
 
 ## install on Mac OSX
 
-	brew install swi-prolog
+    brew install swi-prolog
 
 ## run
 
-	./t example/sum.t
+    ./t example/sum.t
 
 ## TODO
 
