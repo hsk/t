@@ -1,1 +1,1 @@
-letrec(x = "hello world!" in (println_string $ x))
+println_string $ "hello world!"
