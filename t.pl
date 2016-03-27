@@ -165,6 +165,14 @@ run(E) :-
   nl.
 
 main :-
+  current_prolog_flag(argv, [File|_]),
+  seeing(STDIN),see(File),
+  read(E),
+  seen,see(STDIN),
+  run(E),
+  halt.
+
+test :-
   run(true),
   run(false),
   run(if(true,2,3)),
