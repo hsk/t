@@ -18,12 +18,6 @@ lookup((Γ, X1:_), X : V) :- X1\==X, lookup(Γ, X : V).
 
 %% evaluation rules
 
-/*
-string(C),!
---%------------------------------------ (E-String)
-_ ⊢ C ⇓ C.
-*/
-
 integer(I),!
 --%------------------------------------ (E-Int)
 _ ⊢ I ⇓ I.
@@ -69,10 +63,28 @@ C ⊢ X ⇓ V.
 --%------------------------------------ (E-Fun)
 C ⊢ (λ X -> E) ⇓ (C ⊢ λ X -> E).
 
-C ⊢ E2 ⇓ V2,!,
-string_codes(V, V2)
---%------------------------------------ (E-AppString)
-C ⊢ (string $ E2) ⇓ V.
+C ⊢ E ⇓ V,!,
+string_codes(S, V),write(S),!
+--%------------------------------------ (E-AppPrintString)
+C ⊢ (print_string $ E) ⇓ V.
+
+C ⊢ E ⇓ V,!,
+number_string(I, V),!
+--%------------------------------------ (E-AppIntOfString)
+C ⊢ (int_of_string $ E) ⇓ I.
+
+C ⊢ E ⇓ V,!,
+string_codes(S, V),write(S),nl,!
+--%------------------------------------ (E-AppPrintlnString)
+C ⊢ (println_string $ E) ⇓ V.
+
+C ⊢ E ⇓ V,!,write(V),nl,!
+--%------------------------------------ (E-AppPrintlnInt)
+C ⊢ (println_int $ E) ⇓ V.
+
+C ⊢ E ⇓ V,!,write(V),nl,!
+--%------------------------------------ (E-AppPrintlnBool)
+C ⊢ (println_bool $ E) ⇓ V.
 
 C ⊢ E1 ⇓ (C2 ⊢ λ X -> E0),!, C ⊢ E2 ⇓ V2,!,
 (C2,X:V2) ⊢ E0 ⇓ V,!
@@ -172,21 +184,36 @@ _ ⊢ [] : list(_).
 --%------------------------------------ (T-Error)
 _ ⊢ _ : "type error".
 
-run(E) :-
-  ([],(string:(list(int)->string)))  ⊢ E : T, 
+
+addEnv(V,E,E2):- E2=(E,V).
+
+env -->
+  addEnv(print_string:(list(int)->list(int))),
+  addEnv(println_string:(list(int)->list(int))),
+  addEnv(println_int:(int->int)),
+  addEnv(println_bool:(bool->bool)),
+  addEnv(int_of_string:(list(int)->int))
+  .
+
+
+run(ARGV,E) :-
+  maplist(string_codes,ARGV,ARGV2),
+  env([],Env),
+  (Env,(argv:list(list(int)))) ⊢ E : T, 
   (
     T="type error", write('type error');
-    [] ⊢ E ⇓ V, write(V);
+    ([],(argv:ARGV2)) ⊢ E ⇓ V, write(V);
     write('runtime error')
   ),
   nl,!.
 
 main :-
-  current_prolog_flag(argv, [File|_]),
+  current_prolog_flag(argv, ARGV),
+  [File|_]=ARGV,
   
   setup_call_cleanup(open(File, read, In),
         read_string(In, _, S),
         close(In)),
   term_string(E,S),
-  run(E),
+  run(ARGV,E),
   halt.
