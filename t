@@ -9,12 +9,20 @@ term_expansion(A -- B, B :- A).
 :- op(500, yfx, $).
 :- op(10, fx, λ).
 
+:- set_prolog_flag(double_quotes,codes).
+
 bool(true). bool(false).
 
 lookup((_, X :V), X : V).
 lookup((Γ, X1:_), X : V) :- X1\==X, lookup(Γ, X : V).
 
 %% evaluation rules
+
+/*
+string(C),!
+--%------------------------------------ (E-String)
+_ ⊢ C ⇓ C.
+*/
 
 integer(I),!
 --%------------------------------------ (E-Int)
@@ -61,6 +69,11 @@ C ⊢ X ⇓ V.
 --%------------------------------------ (E-Fun)
 C ⊢ (λ X -> E) ⇓ (C ⊢ λ X -> E).
 
+C ⊢ E2 ⇓ V2,!,
+string_codes(V, V2)
+--%------------------------------------ (E-AppString)
+C ⊢ (string $ E2) ⇓ V.
+
 C ⊢ E1 ⇓ (C2 ⊢ λ X -> E0),!, C ⊢ E2 ⇓ V2,!,
 (C2,X:V2) ⊢ E0 ⇓ V,!
 --%------------------------------------ (E-App)
@@ -89,6 +102,10 @@ C ⊢ E1 ⇓ [V1|V2],!,
 C ⊢ match(E1, _, [X|Y]->E3) ⇓ V.
 
 % typing rules
+
+string(C),!
+--%------------------------------------ (T-String)
+_ ⊢ C ⇓ string.
 
 integer(I)
 --%------------------------------------ (T-Int)
@@ -156,45 +173,20 @@ _ ⊢ [] : list(_).
 _ ⊢ _ : "type error".
 
 run(E) :-
-  write(E),!,
-  _  ⊢ E : T, write(' : '), write(T),!,
-  (T="type error";
-  [] ⊢ E ⇓ V, write(' ⇓ '), write(V),!
+  ([],(string:(list(int)->string)))  ⊢ E : T, 
+  (
+    T="type error", write('type error');
+    [] ⊢ E ⇓ V, write(V);
+    write('runtime error')
   ),
-  nl.
+  nl,!.
 
 main :-
   current_prolog_flag(argv, [File|_]),
-  seeing(STDIN),see(File),
-  read(E),
-  seen,see(STDIN),
+  
+  setup_call_cleanup(open(File, read, In),
+        read_string(In, _, S),
+        close(In)),
+  term_string(E,S),
   run(E),
   halt.
-
-test :-
-  run(true),
-  run(false),
-  run(if(true,2,3)),
-  run(if(true,false,true)),
-  run(1 < 2),
-  run(2 < 2),
-  run(1 + 2),
-  run(1 * 2),
-  run(λ x -> x),
-  run((λ x -> x) $ 1),
-  run((λ x -> λ y -> x+y) $ 1 $ 2),
-  run(let(x=1 in x)),
-  run(letrec(sum=(λ x -> if(x < 1, x, x+(sum $ (x - 1)))) in (sum $ 10))),
-  run([1,2]),
-  run([]),
-  run([1]),
-  run(match([],[]->10,[x|y]->1)),
-  run(match([20],[]->10,[x|y]->x)),
-  run(letrec(sum=(λ xs ->
-        match(xs,
-          []->0,
-          [x|xs]->x+(sum $ xs)))
-      in sum $ [1,2,3,4,5])),
-  run(letrec()),
-  halt.
-
