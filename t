@@ -1,14 +1,18 @@
-#!/usr/bin/env swipl
+#!/usr/bin/env swipl --toplevel=halt --stand_alone=true -q
 :- style_check(-singleton).
 :- set_prolog_flag(double_quotes,codes).
 :- initialization(main).
 :- op(1200, xfx, [ -- ]).
 :- op(910, xfx, [ ⊢ ]).
-:- op(900, xfx, [ ⇓ ]).
+:- op(900, xfx, [ ⇓, : ]).
+:- op(892, xfy, [ then, else ]).
 :- op(891, xfy, [ in ]).
-:- op(890, fx, [ letrec, let ]).
+:- op(890, fx, [ letrec, let, if ]).
+:- op(888, xfy, ::).
 :- op(500, yfx, $).
-:- op(10, fx, λ).
+
+:- set_prolog_flag(report_error,true).
+:- set_prolog_flag(unknown,error). 
 
 bool(true). bool(false).
 
@@ -27,30 +31,30 @@ bool(B),!
 --%------------------------------------ (E-Bool)
 C ⊢ B ⇓ B.
 
-C ⊢ E1 ⇓ true,!, C ⊢ E2 ⇓ V,!
+C ⊢ E1 ⇓ true, C ⊢ E2 ⇓ V
 --%------------------------------------ (E-IfTrue)
-C ⊢ if(E1, E2, E3) ⇓ V.
+C ⊢ if E1 then E2 else E3 ⇓ V.
 
-C ⊢ E1 ⇓ false,!, C ⊢ E3 ⇓ V,!
+C ⊢ E1 ⇓ false, C ⊢ E3 ⇓ V
 --%------------------------------------ (E-IfFalse)
-C ⊢ if(E1, E2, E3) ⇓ V.
+C ⊢ if E1 then E2 else E3 ⇓ V.
 
-C ⊢ E1 ⇓ V1,!, C ⊢ E2 ⇓ V2,!, V is V1 + V2,!
+C ⊢ E1 ⇓ V1, C ⊢ E2 ⇓ V2, V is V1 + V2,!
 --%------------------------------------ (E-Plus)
 C ⊢ E1 + E2 ⇓ V.
 
-C ⊢ E1 ⇓ V1,!, C ⊢ E2 ⇓ V2,!, V is V1 - V2,!
+C ⊢ E1 ⇓ V1, C ⊢ E2 ⇓ V2, V is V1 - V2,!
 --%------------------------------------ (E-Minus)
 C ⊢ E1 - E2 ⇓ V.
 
-C ⊢ E1 ⇓ V1,!, C ⊢ E2 ⇓ V2,!,
+C ⊢ E1 ⇓ V1, C ⊢ E2 ⇓ V2,
 (V1 < V2, V = true; V = false),!
 --%------------------------------------ (E-Lt)
-C ⊢ (E1 < E2) ⇓ V.
+C ⊢ E1 < E2 ⇓ V.
 
-C ⊢ E1 ⇓ V1,!, (C, X:V1) ⊢ E2 ⇓ V2,!
+C ⊢ E1 ⇓ V1, (C, X:V1) ⊢ E2 ⇓ V2
 --%------------------------------------ (E-Let)
-C ⊢ (let X = E1 in E2) ⇓ V2.
+C ⊢ let X = E1 in E2 ⇓ V2.
 
 atom(X),!, lookup(C, X : V),!
 --%------------------------------------ (E-Var)
@@ -58,59 +62,63 @@ C ⊢ X ⇓ V.
 
 !
 --%------------------------------------ (E-Fun)
-C ⊢ (λ X -> E) ⇓ (C ⊢ λ X -> E).
+C ⊢ (X -> E) ⇓ (C ⊢ X -> E).
 
-C ⊢ E ⇓ V,!,
-string_codes(S, V),write(S),!
+C ⊢ E ⇓ V,
+string_codes(S, V),!,write(S),!
 --%------------------------------------ (E-AppPrintString)
 C ⊢ (print_string $ E) ⇓ V.
 
-C ⊢ E ⇓ V,!,
+C ⊢ E ⇓ V,
 number_string(I, V),!
 --%------------------------------------ (E-AppIntOfString)
 C ⊢ (int_of_string $ E) ⇓ I.
 
-C ⊢ E ⇓ V,!,
-string_codes(S, V),write(S),nl,!
+C ⊢ E ⇓ V,
+string_codes(S, V),!,write(S),nl,!
 --%------------------------------------ (E-AppPrintlnString)
 C ⊢ (println_string $ E) ⇓ V.
 
-C ⊢ E ⇓ V,!,write(V),nl,!
+C ⊢ E ⇓ V,write(V),nl,!
 --%------------------------------------ (E-AppPrintlnInt)
 C ⊢ (println_int $ E) ⇓ V.
 
-C ⊢ E ⇓ V,!,write(V),nl,!
+C ⊢ E ⇓ V,write(V),nl,!
 --%------------------------------------ (E-AppPrintlnBool)
 C ⊢ (println_bool $ E) ⇓ V.
 
-C ⊢ E1 ⇓ (C2 ⊢ λ X -> E0),!, C ⊢ E2 ⇓ V2,!,
-(C2,X:V2) ⊢ E0 ⇓ V,!
+C ⊢ E1 ⇓ (C2 ⊢ X -> E0), C ⊢ E2 ⇓ V2,
+(C2,X:V2) ⊢ E0 ⇓ V
 --%------------------------------------ (E-App)
 C ⊢ (E1 $ E2) ⇓ V.
 
-(C,X:V1) ⊢ E1 ⇓ V1,!,
-(C,X:V1) ⊢ E2 ⇓ V2,!
+(C,X:V1) ⊢ E1 ⇓ V1,
+(C,X:V1) ⊢ E2 ⇓ V2
 --%------------------------------------ (E-LetRec)
 C ⊢ (letrec X = E1 in E2) ⇓ V2.
 
-C ⊢ E1 ⇓ V,!, C ⊢ E2 ⇓ V2,!
+C ⊢ E1 ⇓ V, C ⊢ E2 ⇓ V2
 --%------------------------------------ (E-Cons)
+C ⊢ (E1::E2) ⇓ [V|V2].
+
+C ⊢ E1 ⇓ V, C ⊢ E2 ⇓ V2
+--%------------------------------------ (E-Cons2)
 C ⊢ [E1|E2] ⇓ [V|V2].
 
 !
 --%------------------------------------ (E-Nil)
 C ⊢ [] ⇓ [].
 
-C ⊢ E1 ⇓ [],!, C ⊢ E2 ⇓ V,!
+C ⊢ E1 ⇓ [], C ⊢ E2 ⇓ V
 --%------------------------------------ (E-MatchNil)
-C ⊢ match(E1, [] -> E2, _) ⇓ V.
+C ⊢ match(E1 | [] -> E2 | _) ⇓ V.
 
-C ⊢ E1 ⇓ [V1|V2],!,
-((C,X : V1),Y : V2) ⊢ E3 ⇓ V,!
+C ⊢ E1 ⇓ [V1|V2],
+((C,X : V1),Y : V2) ⊢ E3 ⇓ V
 --%------------------------------------ (E-MatchCons)
-C ⊢ match(E1, _, [X|Y]->E3) ⇓ V.
+C ⊢ match(E1 | _ | X::Y->E3) ⇓ V.
 
-% typing rules
+%% typing rules
 
 integer(I)
 --%------------------------------------ (T-Int)
@@ -122,7 +130,7 @@ bool(B)
 
 Γ ⊢ E1 : bool, Γ ⊢ E2 : T, Γ ⊢ E3 : T
 --%------------------------------------ (T-If)
-Γ ⊢ if(E1, E2, E3) : T.
+Γ ⊢ (if E1 then E2 else E3) : T.
 
 Γ ⊢ E1 : int, Γ ⊢ E2 : int
 --%------------------------------------ (T-Plus)
@@ -142,7 +150,7 @@ atom(X), lookup(Γ, X : T)
 
 (Γ,X:T) ⊢ E : T2
 --%------------------------------------ (T-Fun)
-Γ ⊢ (λ X -> E) : (T -> T2).
+Γ ⊢ (X -> E) : (T -> T2).
 
 Γ ⊢ E1 : (T2 -> T), Γ ⊢ E2 : T2
 --%------------------------------------ (T-App)
@@ -154,6 +162,10 @@ atom(X), lookup(Γ, X : T)
 
 Γ ⊢ E1 : T, Γ ⊢ E2 : list(T)
 --%------------------------------------ (T-List)
+Γ ⊢ (E1::E2) : list(T).
+
+Γ ⊢ E1 : T, Γ ⊢ E2 : list(T)
+--%------------------------------------ (T-List2)
 Γ ⊢ [E1|E2] : list(T).
 
 !
@@ -163,7 +175,7 @@ atom(X), lookup(Γ, X : T)
 Γ ⊢ E1 : list(T1), Γ ⊢ E2 : T,
 ((Γ,X : T1), Y : list(T1)) ⊢ E3 : T
 --%------------------------------------ (T-MatchCons)
-Γ ⊢ match(E1, [] -> E2, [X|Y]->E3) : T.
+Γ ⊢ match(E1 | [] -> E2 | X::Y->E3) : T.
 
 (Γ,X:T1) ⊢ E1 : T1, (Γ,X:T1) ⊢ E2 : T2
 --%------------------------------------ (T-LetRec)
@@ -188,7 +200,7 @@ main :-
   setup_call_cleanup(open(File, read, In),
         read_string(In, _, S),
         close(In)),
-  term_string(E,S),
+  catch(term_string(E,S),error(Err,string(ErrS,ErrPos)),(write(Err),write(':'),write(ErrS),halt)),
   maplist(string_codes,ARGV,ARGV2),
   env([],Env),
   (Env,(argv:list(list(int)))) ⊢ E : T, 
@@ -196,5 +208,5 @@ main :-
     T="type error", write('type error\n');
     ([],(argv:ARGV2)) ⊢ E ⇓ _;
     write('runtime error\n')
-  ),!,
+  ),
   halt.

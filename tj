@@ -1,0 +1,97 @@
+#!/usr/bin/env swipl
+:- style_check(-singleton).
+:- set_prolog_flag(double_quotes,codes).
+:- initialization(main).
+:- op(1200, xfx, [ ならば ]).
+:- op(1100, xfy, [ 違ければ ]).
+:- op(1000, xfy, [ なら ]).
+:- op(910, xfx, [ 環境で ]).
+:- op(900, xfx, [ が ]).
+:- op(900, xfx, [ ⇓, の型が ]).
+:- op(891, xfy, [ in ]).
+:- op(890, fx, [ letrec, let, if ]).
+:- op(891, xfy, [ then, else ]).
+:- op(888, xfy, ::).
+
+:- op(500, yfx, $).
+:- op(1000, xfy, [ かつ, で ]).
+A かつ B :- A, B.
+A なら B :- A, B.
+A で B :- A,!, B.
+A 違ければ B :- A ; B.
+term_expansion(A ならば B, (B :- A,!)).
+
+bool(true). bool(false).
+
+lookup((Γ, X :V ), X : V).
+lookup((Γ, X1:V1), X : V) :- X1\==X, lookup(Γ, X : V).
+
+%% 評価規則
+
+integer(I) ならば C 環境で I が I. % 整数
+bool(B) ならば C 環境で B が B. % bool
+C 環境で E1 が true  で C 環境で E2 が V ならば C 環境で if E1 then E2 else E3 が V. % if文
+C 環境で E1 が false で C 環境で E3 が V ならば C 環境で if E1 then E2 else E3 が V. % if文
+C 環境で E1 が V1 で C 環境で E2 が V2 で V is V1 + V2 ならば C 環境で E1 + E2 が V. % 足し算
+C 環境で E1 が V1 で C 環境で E2 が V2 で V is V1 - V2 ならば C 環境で E1 - E2 が V. % 引き算
+C 環境で E1 が V1 で C 環境で E2 が V2 で (V1 < V2 なら V = true 違ければ V = false) ならば C 環境で (E1 < E2) が V. % 比較
+C 環境で E1 が V1 で (C, X:V1) 環境で E2 が V2 ならば C 環境で (let X = E1 in E2) が V2. % let 式
+atom(X) で lookup(C, X : V) ならば C 環境で X が V. % 変数
+C 環境で (X -> E) が (C 環境で X -> E). % 関数
+C 環境で E が V で string_codes(S, V) で write(S) ならば C 環境で (print_string $ E) が V. % print_string 関数適用
+C 環境で E が V で number_string(I, V) ならば C 環境で (int_of_string $ E) が I. % int_of_string 関数適用
+C 環境で E が V で string_codes(S, V) で write(S),nl ならば C 環境で (println_string $ E) が V. % println_string 関数適用
+C 環境で E が V で write(V),nl ならば C 環境で (println_int $ E) が V. % println_int 関数適用
+C 環境で E が V で write(V),nl ならば C 環境で (println_bool $ E) が V. % println_bool 関数適用
+C 環境で E1 が (C2 環境で X -> E0) で C 環境で E2 が V2 で (C2,X:V2) 環境で E0 が V ならば C 環境で (E1 $ E2) が V. % 関数適用
+(C,X:V1) 環境で E1 が V1 で (C,X:V1) 環境で E2 が V2 ならば C 環境で (letrec X = E1 in E2) が V2. % letrec式
+C 環境で E1 が V で C 環境で E2 が V2 ならば C 環境で [E1|E2] が [V|V2]. % リスト
+C 環境で E1 が V で C 環境で E2 が V2 ならば C 環境で (E1::E2) が [V|V2]. % リスト
+C 環境で [] が []. % 空リスト
+C 環境で E1 が [] で C 環境で E2 が V ならば C 環境で match(E1 | [] -> E2 | _) が V. % 空リストのパターンマッチ
+C 環境で E1 が [V1|V2] で ((C,X : V1),Y : V2) 環境で E3 が V ならば C 環境で match(E1 | _ | X::Y->E3) が V. % リストのパターンマッチ
+
+%% 型付け規則
+
+integer(I) ならば Γ 環境で I の型が int.
+bool(B) ならば Γ 環境で B の型が bool.
+Γ 環境で E1 の型が bool, Γ 環境で E2 の型が T かつ Γ 環境で E3 の型が T ならば Γ 環境で if E1 then E2 else E3 の型が T.
+Γ 環境で E1 の型が int かつ Γ 環境で E2 の型が int ならば Γ 環境で E1 + E2 の型が int.
+Γ 環境で E1 の型が int かつ Γ 環境で E2 の型が int ならば Γ 環境で E1 - E2 の型が int.
+Γ 環境で E1 の型が int かつ Γ 環境で E2 の型が int ならば Γ 環境で E1 < E2 の型が bool.
+atom(X), lookup(Γ, X : T) ならば Γ 環境で X の型が T.
+(Γ,X:T) 環境で E の型が T2 ならば Γ 環境で (X -> E) の型が (T -> T2).
+Γ 環境で E1 の型が (T2 -> T) で Γ 環境で E2 の型が T2 ならば Γ 環境で E1 $ E2 の型が T.
+Γ 環境で E1 の型が T1 かつ (Γ,X:T1) 環境で E2 の型が T2 ならば Γ 環境で let X = E1 in E2 の型が T2.
+Γ 環境で E1 の型が T かつ Γ 環境で E2 の型が list(T) ならば Γ 環境で [E1|E2] の型が list(T).
+Γ 環境で E1 の型が T かつ Γ 環境で E2 の型が list(T) ならば Γ 環境で E1::E2 の型が list(T).
+Γ 環境で [] の型が list(_).
+Γ 環境で E1 の型が list(T1), Γ 環境で E2 の型が T かつ ((Γ,X : T1), Y : list(T1)) 環境で E3 の型が T ならば Γ 環境で match(E1 | [] -> E2 | X::Y->E3) の型が T.
+(Γ,X:T1) 環境で E1 の型が T1 かつ (Γ,X:T1) 環境で E2 の型が T2 ならば Γ 環境で letrec X = E1 in E2 の型が T2.
+Γ 環境で E1 の型が "type error".
+
+add_env(V,E,E2):- E2=(E,V).
+
+env -->
+  add_env(print_string:(list(int)->list(int))),
+  add_env(println_string:(list(int)->list(int))),
+  add_env(println_int:(int->int)),
+  add_env(println_bool:(bool->bool)),
+  add_env(int_of_string:(list(int)->int)).
+
+main :-
+  current_prolog_flag(argv, ARGV),
+  [File|_]=ARGV,
+  setup_call_cleanup(open(File, read, In),
+        read_string(In, _, S),
+        close(In)),
+  term_string(E,S),
+  maplist(string_codes,ARGV,ARGV2),
+  env([],Env),
+  (Env,(argv:list(list(int)))) 環境で E の型が T,
+  (
+    T="type error", write('type error\n');
+    ([],(argv:ARGV2)) 環境で E が V;
+    write('runtime error\n')
+  ),!,
+  halt.

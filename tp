@@ -1,0 +1,82 @@
+#!/usr/bin/env swipl
+:- style_check(-singleton).
+:- set_prolog_flag(double_quotes,codes).
+:- initialization(main).
+:- op(891, xfy, [ in ]).
+:- op(890, fx, [ letrec, let, if ]).
+:- op(891, xfy, [ then, else ]).
+:- op(888, xfy, ::).
+
+:- op(500, yfx, $).
+
+bool(true). bool(false).
+
+lookup([X :V|Γ], X, V).
+lookup([X1:V1|Γ], X, V) :- X1\==X, lookup(Γ, X, V).
+
+%% evaluation rules
+
+eval(C, I, I) :- integer(I), !.
+eval(C, B, B) :- bool(B), !.
+eval(C, if E1 then E2 else E3, V) :- eval(C,E1,true), eval(C,E2,V),!.
+eval(C, if E1 then E2 else E3, V) :- eval(C,E1,false), eval(C,E3,V),!.
+eval(C, E1 + E2, V) :- eval(C, E1, V1), eval(C, E2, V2), V is V1 + V2,!.
+eval(C, E1 - E2, V):- eval(C, E1, V1), eval(C, E2, V2), V is V1 - V2,!.
+eval(C, E1 < E2, V):- eval(C, E1, V1), eval(C, E2, V2), (V1 < V2, V = true; V = false),!.
+eval(C, let X = E1 in E2, V2) :- eval(C, E1, V1), eval([X:V1|C], E2, V2), !.
+eval(C, X, V) :- atom(X),!, lookup(C, X, V),!.
+eval(C, (X -> E), lam(C, X -> E)).
+eval(C, print_string $ E, V) :- eval(C, E, V), string_codes(S, V),write(S),!.
+eval(C, int_of_string $ E, I) :- eval(C, E, V), number_string(I, V),!.
+eval(C, println_string $ E, V) :- eval(C, E, V), string_codes(S, V),write(S),nl,!.
+eval(C, println_int $ E, V) :- eval(C, E, V), write(V),nl,!.
+eval(C, println_bool $ E, V) :- eval(C, E, V), write(V),nl,!.
+eval(C, E1 $ E2, V) :- eval(C, E1, lam(C2, X -> E0)), eval(C, E2, V2), eval([X:V2|C2], E0, V),!.
+eval(C, letrec X = E1 in E2, V2) :- eval([X:V1|C], E1, V1), eval([X:V1|C], E2, V2),!.
+eval(C, [E1|E2], [V|V2]) :- eval(C, E1, V), eval(C, E2, V2),!.
+eval(C, E1::E2, [V|V2]) :- eval(C, E1, V), eval(C, E2, V2),!.
+eval(C, [], []).
+eval(C, match(E1 | [] -> E2 | _), V) :- eval(C, E1, []), eval(C, E2, V),!.
+eval(C, match(E1 | _ | X::Y->E3), V) :- eval(C, E1, [V1|V2]), eval([X : V1,Y : V2|C], E3, V),!.
+
+% typing rules
+
+ti(Γ, I, int) :- integer(I).
+ti(Γ, B, bool) :- bool(B).
+ti(Γ, if E1 then E2 else E3, T) :- ti(Γ, E1, bool), ti(Γ, E2, T), ti(Γ, E3, T).
+ti(Γ, E1 + E2, int) :- ti(Γ, E1, int), ti(Γ, E2, int).
+ti(Γ, E1 - E2, int) :- ti(Γ, E1, int), ti(Γ, E2, int).
+ti(Γ, E1 < E2, bool) :- ti(Γ, E1, int), ti(Γ, E2, int).
+ti(Γ, X, T) :- atom(X), lookup(Γ, X, T).
+ti(Γ, X -> E, T -> T2) :- ti([X:T|Γ], E, T2).
+ti(Γ, E1 $ E2, T) :- ti(Γ, E1, T2 -> T), ti(Γ, E2, T2).
+ti(Γ, let X = E1 in E2, T2) :- ti(Γ, E1, T1), ti([X:T1|Γ], E2, T2).
+ti(Γ, [E1|E2], list(T)) :- ti(Γ, E1, T), ti(Γ, E2, list(T)).
+ti(Γ, E1::E2, list(T)) :- ti(Γ, E1, T), ti(Γ, E2, list(T)).
+ti(Γ, [], list(_)).
+ti(Γ, match(E1 | [] -> E2 | X::Y->E3), T) :- ti(Γ, E1, list(T1)), ti(Γ, E2, T), ti([X:T1, Y:list(T1)|Γ], E3, T).
+ti(Γ, letrec X = E1 in E2, T2) :- ti([X:T1|Γ], E1, T1), ti([X:T1|Γ], E2, T2).
+ti(Γ, E1, "type error").
+
+env(Env) :- Env = [
+  argv:list(list(int)),
+  print_string:(list(int)->list(int)),
+  println_string:(list(int)->list(int)),
+  println_int:(int->int),
+  println_bool:(bool->bool),
+  int_of_string:(list(int)->int)].
+
+main :-
+  current_prolog_flag(argv, ARGV),
+  [File|_]=ARGV,
+  setup_call_cleanup(open(File, read, In), read_string(In, _, S), close(In)),
+  term_string(E,S),
+  maplist(string_codes,ARGV,ARGV2),
+  env(Env),
+  ti(Env,E,T),!,
+  (
+    T="type error", write('type error\n');
+    eval([argv:ARGV2], E, _);
+    write('runtime error\n')
+  ),!,
+  halt.

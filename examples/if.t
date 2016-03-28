@@ -1,1 +1,1 @@
-println_int $ if(true,2,3)
+println_int $ (if true then 2 else 3)

@@ -1,2 +1,2 @@
-println_int $ ((λ x -> λ y -> x+y) $ 1 $ 2)
+println_int $ ((x -> y -> x+y) $ 1 $ 2)
 

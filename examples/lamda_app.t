@@ -1,1 +1,1 @@
-println_int $ ((λ x -> x) $ 1)
+println_int $ ((x -> x) $ 1)
